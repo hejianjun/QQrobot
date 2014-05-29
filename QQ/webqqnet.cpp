@@ -15,24 +15,34 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QCryptographicHash>
+/**
+ * @brief WebQQNet::WebQQNet 初始化类
+ * @param parent
+ */
 WebQQNet::WebQQNet(QObject *parent) :
     QObject(parent)
 {
-    pCookieJar=new QNetworkCookieJar(this);
+    //初始化http
     http=new QNetworkAccessManager(this);
     httpPoll=new QNetworkAccessManager(this);
     httpExtInfo=new QNetworkAccessManager(this);
+    //设置cookie
+    pCookieJar=new QNetworkCookieJar(this);
     http->setCookieJar(pCookieJar);
     httpPoll->setCookieJar(pCookieJar);
     httpExtInfo->setCookieJar(pCookieJar);
+    //关联finished信号
     connect(http,SIGNAL(finished(QNetworkReply*)),this,SLOT(httpFinished(QNetworkReply*)));
     connect(httpPoll,SIGNAL(finished(QNetworkReply*)),this,SLOT(httpPollFinished(QNetworkReply*)));
     connect(httpExtInfo,SIGNAL(finished(QNetworkReply*)),this,SLOT(httpExtInfoFinished(QNetworkReply*)));
+    //获取当前时间作为产生随机数的种子
     QTime time;
     time= QTime::currentTime();
     qsrand(time.msec()+time.second()*1000);
     clientid=QString::number(qrand());
+    //产生1~1000*10000的随机数作为消息id
     msgId=(qrand()%1000)*10000+1;
+    //绑定定时器信号与发送消息信号
     timer=new QTimer(this);
     connect(timer,SIGNAL(timeout()),this,SLOT(sendMsg()));
     //qDebug()<<"msgId="<<msgId<<endl;
@@ -60,7 +70,10 @@ void WebQQNet::pollMsg(){
     qDebug()<<"PollMsg"<<QDateTime::currentMSecsSinceEpoch()<<endl;
     httpPoll->post(request,postData);
 }
-
+/**
+ * @brief WebQQNet::httpPollFinished 心跳包回调
+ * @param reply
+ */
 void WebQQNet::httpPollFinished(QNetworkReply* reply){
 
     QByteArray replyData=reply->readAll();
@@ -208,7 +221,10 @@ void WebQQNet::httpExtInfoFinished(QNetworkReply* reply){
     qDebug()<<"httpExtInfoFinished /////////////////////////////////////////////////////////////////////////////"<<endl;
     //this->pollMsg();
 }
-
+/**
+ * @brief WebQQNet::httpFinished 处理QNetworkAccessManager的finished信号
+ * @param reply
+ */
 void WebQQNet::httpFinished(QNetworkReply* reply){
     QByteArray replyData=reply->readAll();
     reply->deleteLater();
@@ -222,9 +238,11 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
         break;
     case HttpAction::CheckVerirycodeAction:
         if(replystr.indexOf("'0'")>-1){
+            //发送需要验证码的信号
             emit checkVerifycodeFinished(true,replystr.mid(18,4));
             httpAction=HttpAction::NoAction;
         }else{
+            //发送不需要验证码的信号
             emit checkVerifycodeFinished(false,"");
         }
         replystr.chop(3);
@@ -233,6 +251,7 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
         break;
     case HttpAction::GetVerifyImgAction:
         qDebug()<<reply->header(QNetworkRequest::ContentTypeHeader).toString();
+        //发送取得验证码图片的信号
         emit getVerifyImgFinished(replyData);
         httpAction=HttpAction::NoAction;
         break;
@@ -245,6 +264,7 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
         if(!ptwebqq.isEmpty()){
             check_sig(replystr);
         }else{
+            //发送登录失败的信号
             emit loginFinished(false,"登录失败！");
         }
         break;
@@ -255,6 +275,7 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
         qDebug()<<"Login2Action"<<replystr<<endl;
         jsonDoc=QJsonDocument::fromJson(replyData);
         if(jsonDoc.isNull()){
+            //发送登录失败的信号
             emit loginFinished(false,"登录失败！");
         }else{
             jsonObj=jsonDoc.object();
@@ -265,7 +286,9 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
                 vfwebqq=jsonObj.value("vfwebqq").toString();
                 psessionid=jsonObj.value("psessionid").toString();
                 //qDebug()<<"登录成功！vfwebqq="<<vfwebqq<<"psessionid="<<psessionid<<endl;
+                //发送登录成功的信号
                 emit loginFinished(true,"成功！");
+                //获取好友列表
                 this->getUserFriends();
             }
         }
@@ -395,7 +418,10 @@ void WebQQNet::httpFinished(QNetworkReply* reply){
 
     reply->deleteLater();
 }
-
+/**
+ * @brief WebQQNet::checkVerifyCode 检查验证码
+ * @param qqnum QQ帐号
+ */
 void WebQQNet::checkVerifyCode(QString qqnum){
     QNetworkRequest request;
     request.setUrl(QUrl(QString("http://check.ptlogin2.qq.com/check?uin=%1&appid=1003903&js_ver=10041").arg(qqnum)));
@@ -410,6 +436,10 @@ void WebQQNet::checkVerifyCode(QString qqnum){
     httpAction=HttpAction::CheckVerirycodeAction;
     http->get(request);
 }
+/**
+ * @brief WebQQNet::getVerifyImg 获取验证码图片
+ * @param qqnum QQ帐号
+ */
 void WebQQNet::getVerifyImg(QString qqnum){
     QNetworkRequest request;
     request.setUrl(QUrl(QString("http://captcha.qq.com/getimage?aid=1003903&uin=%1").arg(qqnum)));
@@ -424,6 +454,12 @@ void WebQQNet::getVerifyImg(QString qqnum){
     httpAction=HttpAction::GetVerifyImgAction;
     http->get(request);
 }
+/**
+ * @brief WebQQNet::login webQQ登录
+ * @param qqnum QQ帐号
+ * @param qqpass QQ密码
+ * @param verifyCode 验证码
+ */
 void WebQQNet::login(QString qqnum,QString qqpass, QString verifyCode){
     qDebug()<<getP(qqpass,verifyCode,uinhexstr);
     QNetworkRequest request;
@@ -481,6 +517,9 @@ void WebQQNet::login2(){
     qDebug()<<postData<<endl;
     http->post(request,postData);
 }
+/**
+ * @brief WebQQNet::loginout webQQ注销
+ */
 void WebQQNet::loginout(){
 
     emit  sysMsg("正在注销登录信息...........");
@@ -500,7 +539,10 @@ void WebQQNet::loginout(){
     httpAction=HttpAction::LoginOutAction;
     http->get(request);
 }
-
+/**
+ * @brief WebQQNet::getFriendInfo 获取好友信息
+ * @param qqnum QQ帐号
+ */
 void WebQQNet::getFriendInfo(QString qqnum){
     QNetworkRequest request;
     QString urlstr=QString("http://s.web2.qq.com/api/get_friend_info2?tuin=%1&verifysession=&code=&vfwebqq=%2&t=1377829770859").arg(qqnum).arg(vfwebqq);
@@ -518,6 +560,9 @@ void WebQQNet::getFriendInfo(QString qqnum){
     httpAction=HttpAction::GetFriendInfoAction;
     http->get(request);
 }
+/**
+ * @brief WebQQNet::getUserFriends 获取好友列表
+ */
 void WebQQNet::getUserFriends(){
 
     emit sysMsg("获取好友信息...........");
@@ -540,6 +585,9 @@ void WebQQNet::getUserFriends(){
     qDebug()<<postData<<endl;
     http->post(request,postData);
 }
+/**
+ * @brief WebQQNet::getGroupNameList 获取组列表
+ */
 void WebQQNet::getGroupNameList(){
 
     emit sysMsg("获取群信息...........");
@@ -562,8 +610,13 @@ void WebQQNet::getGroupNameList(){
     qDebug()<<postData<<endl;
     http->post(request,postData);
 }
-
+/**
+ * @brief WebQQNet::sendMsg 发送QQ消息
+ * @param txuin 接收者
+ * @param msg 消息正文
+ */
 void WebQQNet::sendMsg(QString txuin, QString msg){
+    //如果队列为空则发送消息
     if(httpAction==HttpAction::NoAction){
         QString txuinflag=txuin.left(3);
         currSendMsg.first=txuin;
@@ -577,12 +630,14 @@ void WebQQNet::sendMsg(QString txuin, QString msg){
                 .replace("\n", "\\\\n")
                 .replace("\"", "'");
         qDebug()<<"对json 特殊字符进行替换__后"<<msg<<endl;
+        //如果是好友
         if(txuinflag=="FTX"){
             WebQQ::webQQNet->sendBuddyMsg(txuin.mid(3),msg);
+        //如果是群消息
         }else if(txuinflag=="GTX"){
             WebQQ::webQQNet->sendGroupMsg(txuin.mid(3),msg);
         }
-
+    //否则加入消息队列设置1s后重试
     }else{
         sendMsgList.append(QPair<QString,QString>(txuin,msg));
         if(!timer->isActive()){
@@ -600,7 +655,11 @@ void WebQQNet::sendMsg(){
         sendMsg(currSendMsg.first,currSendMsg.second);
     }
 }
-
+/**
+ * @brief WebQQNet::sendBuddyMsg 发送好友消息
+ * @param uin 接收者通讯号
+ * @param msg 消息内容（json）
+ */
 void WebQQNet::sendBuddyMsg(QString uin, QString msg){
     QNetworkRequest request;
     request.setUrl(QUrl("http://d.web2.qq.com/channel/send_buddy_msg2"));
@@ -625,6 +684,11 @@ void WebQQNet::sendBuddyMsg(QString uin, QString msg){
     http->post(request,postData);
 
 }
+/**
+ * @brief WebQQNet::sendGroupMsg 发送群消息
+ * @param groupuin 群id
+ * @param msg 消息内容（json）
+ */
 void WebQQNet::sendGroupMsg(QString groupuin, QString msg){
     QNetworkRequest request;
     request.setUrl(QUrl("http://d.web2.qq.com/channel/send_qun_msg2"));
@@ -668,9 +732,18 @@ QString WebQQNet::getCookie(const QString &name){
     }
     return retstr;
 }
+/**
+ * @brief WebQQNet::getHash 获取Hash
+ * @param uin 通讯号
+ * @param ptwebqq WebQQ Cookie中的值
+ * @return Hash值
+ */
 QString WebQQNet::getHash(qint32 uin, QString ptwebqq){
     QVector<qint8> r;
-    r.append(uin>> 24 &255);r.append(uin>> 16 &255);r.append(uin>> 8 &255); r.append(uin&255);
+    r.append(uin>> 24 &255);
+    r.append(uin>> 16 &255);
+    r.append(uin>> 8 &255);
+    r.append(uin&255);
     QVector<int>ja;
     for(int e=0;e<ptwebqq.length();++e){
         ja.push_back(ptwebqq.at(e).toLatin1());

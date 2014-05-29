@@ -17,12 +17,18 @@
 #include<QButtonGroup>
 #include "webqq.h"
 #include<QDebug>
+/**
+ * @brief MainWindow::MainWindow 主窗口
+ * @param parent 父容器
+ */
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    //关联发送消息点击信号
     connect(ui->sendButton,SIGNAL(clicked()),this,SLOT(sendMsg()));
+    //关联改变消息选择的信号
     connect(ui->textBrowser,SIGNAL(selectionChanged()),this,SLOT(selChgGetTXUIN()));
     connect(WebQQ::webQQNet,SIGNAL(msgReceived()),this,SLOT(msgReceived()));
     connect(WebQQ::webQQNet,SIGNAL(sendMsgFinished(QString,QString,bool)),this,SLOT(sendMsgFinished(QString,QString,bool)));
@@ -191,11 +197,15 @@ void MainWindow::robotsSelected(int id){
         }
     }
 }
+/**
+ * @brief MainWindow::selChgGetTXUIN 改变消息选择的回调
+ */
 void MainWindow::selChgGetTXUIN(){
     QString selectedtxt=ui->textBrowser->textCursor().selectedText().trimmed();
     if(selectedtxt.indexOf("TX")>-1){
         QString txuinflag=selectedtxt.left(3);
         QString txuin=selectedtxt.mid(3);
+        //如果是好友
         if(txuinflag=="FTX"){
             QQfriend *f=WebQQ::qqFriends.value(txuin,nullptr);
             if(f==nullptr){
@@ -356,7 +366,12 @@ void MainWindow::sysMsg(QString msg){
                             .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"))
                             .arg(msg));
 }
-
+/**
+ * @brief MainWindow::sendMsgFinished 发送成功回调
+ * @param txuin
+ * @param msg
+ * @param isok
+ */
 void MainWindow::sendMsgFinished(QString txuin, QString msg, bool isok){
     QString txuinflag=txuin.left(3);
     const char *fchar="<font color='dimgray'>%1</font> 你对 %2 %3 说：<br>%4<br><font color='red'>%5</font>";
@@ -384,7 +399,9 @@ void MainWindow::sendMsgFinished(QString txuin, QString msg, bool isok){
     }
     ui->textBrowser->append(saystr.replace('\n',"<br>"));
 }
-
+/**
+ * @brief MainWindow::sendMsg 点击发送回调
+ */
 void MainWindow::sendMsg(){
     if(ui->plainTextEdit->toPlainText().isEmpty()) return;
     QString txuinflag=ui->txuinLineEdit->text().left(3);

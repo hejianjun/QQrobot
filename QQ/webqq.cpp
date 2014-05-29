@@ -27,16 +27,31 @@ QStandardItemModel *qqGroupListModel=new QStandardItemModel();
 QStandardItemModel *qqFriendListModel=new QStandardItemModel();
 bool isclose=false;
 QMutex mutex;
+/**
+ * @brief login QQ登录函数
+ */
 void login(){
+    //实例化webQQ连接类
     webQQNet=new WebQQNet();
+    //实例化登录窗口
     loginDlg=new LoginDlg();
+    //显示登录窗口
     loginDlg->show();
 }
+/**
+ * @brief loginFinished 登录完成的回调
+ * @param ok 是否成功
+ */
 void loginFinished(bool ok){
     if(ok){
         mainWindow=new MainWindow();
+        //打开主窗口
         mainWindow->show();
-        loginDlg->hide();loginDlg->close();loginDlg->deleteLater();
+        //隐藏登录窗口
+        loginDlg->hide();
+        //删除登录窗口
+        loginDlg->close();
+        loginDlg->deleteLater();
     }
 }
 }

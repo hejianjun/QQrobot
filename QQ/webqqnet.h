@@ -19,6 +19,9 @@ class QNetworkCookieJar;
 enum class HttpAction{NoAction,CheckVerirycodeAction,GetVerifyImgAction,LoginAction,LoginOutAction,Check_sigAction,Login2Action,
                       GetFriendInfoAction,GetUserFriendsAction,GetGroupNameListAction,GetMsgAction,
                      SendBuddyMsgAction,SendGroupMsgAction};
+/**
+ * @brief The WebQQNet class webQQ链接类
+ */
 class WebQQNet : public QObject
 {
     Q_OBJECT
@@ -47,7 +50,7 @@ public:
     void getGroupNameList();
     void sendMsg(QString txuin,QString msg);
     void getGroupMemberInfo(QString groupTXUIN);
-    qint32 uin;
+    qint64 uin;
 private:
     void pollMsg();
 

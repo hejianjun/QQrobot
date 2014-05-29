@@ -45,3 +45,5 @@ RESOURCES += \
     imgs.qrc
 
 RC_FILE = myapp.rc
+
+OTHER_FILES +=

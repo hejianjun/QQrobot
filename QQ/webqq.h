@@ -13,7 +13,7 @@
 #include <QList>
 #include <QStandardItemModel>
 #include <QStandardItem>
-#include<QMutex>
+#include <QMutex>
 #include "webqqnet.h"
 #include "qqgroup.h"
 #include "qqfriend.h"
